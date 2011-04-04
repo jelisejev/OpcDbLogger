@@ -3,25 +3,27 @@ classdef OpcDbLogger < handle
     %   Detailed explanation goes here
        
     properties (Access=public)
-        conn
+        Conn
     end
     
     methods
         
         % connects to the database
         function connect(this, host, user, password, db)
-            this.conn = mysql('open', host, user, password);
+            this.Conn = mysql('open', host, user, password);
             this.use(db);
         end
         
         % choose a database
         function use(this, db)
-            db = mysql(this.conn, 'use', db);
+            db = mysql(this.Conn, 'use', db);
         end
         
         % save date to the database
         function log(this, opcItem, eventType, opcListener)
-            data = opcItem.data;
+            %throw(MException('OpcListener:stop', 'stop, please'));
+            
+            data = opcItem.Data;
             
             % format timestamp
             time = opcItem.timestamp('yyyy-mm-dd HH:MM:SS');
@@ -34,9 +36,10 @@ classdef OpcDbLogger < handle
             
             % insert data
             query = ['INSERT INTO log (item, value, quality, timestamp, error, eventType) VALUES ("', itemId, '","', value, '","', quality, '","', time, '","', error, '","', eventType, '");'];
-            mysql(query);
+            mysql(this.Conn, query);
         end
     end
+    
     
     methods (Access=private)
         

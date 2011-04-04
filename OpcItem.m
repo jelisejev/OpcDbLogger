@@ -3,21 +3,21 @@ classdef OpcItem
     %   Detailed explanation goes here
     
     properties
-        data
+        Data
     end
     
     methods
         function this = OpcItem(data)
-            this.data = data;
+            this.Data = data;
         end
         
         % checks whether the signal quality is bad
-        function bad = isBad(this)
-            bad = numel(strfind(this.data.Quality, 'Bad')) > 0;
+        function bad = isbad(this)
+            bad = numel(strfind(this.Data.Quality, 'Bad')) > 0;
         end
         
         function timestamp = timestamp(this, format)
-            timestamp = datestr(this.data.TimeStamp, format);
+            timestamp = datestr(this.Data.TimeStamp, format);
         end
     end
     

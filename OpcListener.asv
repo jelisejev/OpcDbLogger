@@ -2,73 +2,132 @@ classdef OpcListener < handle
     %OPCLISTENER Summary of this class goes here
     %   Detailed explanation goes here
     
-    properties (Access=public)
-        listeners
-        da
+    properties 
+        Listeners
+        GlobalListeners
+        Da
+        Grp
     end
     
-    properties (Access=public)
-        pause = 1;
+    properties
+        Pause = 1;
     end
     
     methods
         
         function connect(this, host, serverId)
-            this.da = opcda(host, serverId);
-            connect(this.da);
+            this.Da = opcda(host, serverId);
+            this.Da.Timeout = 6;
+            connect(this.Da);
+            this.Grp = addgroup(this.Da, 'OpcListenerGroup');
         end
         
-        function listen(this, selector, eventType, callback)
-            key = numel(this.listeners)+1;
-            this.listeners(key).eventType = eventType;
-            this.listeners(key).callback = callback;
-            this.listeners(key).selector = selector;
+        % varargin = [eventType, callback]
+        function nItems = bind(this, selector, eventType, callback)
+            
+            % add items to the group
+            items = this.additems(selector);
+            
+            % add item listeners
+            for i = 1:numel(items)
+                this.addcallback(items{i}, eventType, callback);
+            end
+            
+            % return the number of added items
+            nItems = numel(items);
         end
+        
+        
+        % binds a global event
+        function bindglobal(this, eventType, callback)
+            if isfield(this.GlobalListeners, eventType) == false
+                this.Listeners.(eventType) = [];
+            end
+            
+            % add event callback
+            i = length(this.Listeners.(eventType)) + 1;
+            this.Listeners.(eventType){i} = callback;       
+        end
+        
         
         function run(this)
             
             while(1)
-                for i = 1:numel(this.listeners)
-                    listener = this.listeners(i);
 
-                    % find matching items
-                    grp = addgroup(this.da, 'ListenGroup');
-                    items = serveritems(this.da, listener.selector);                    
-                    additem(grp, items);
+                items = read(this.Grp);
+                for j = 1:numel(items)
+                    item = OpcItem(items(j));
+                    listener = this.Listeners.(genvarname(item.Data.ItemID));
                     
-                    % no matching items found, try to force an item
-                    if numel(items) == 0
-                        additem(grp, listener.selector);
+                    %trigger the global Read event
+                    if isfield(this.GlobalListeners, 'Read')
+                        this.trigger(item, 'Read', this.GlobalListeners.Read);
                     end
-
-                    % trigger callbacks
-                    items = read(grp);
-                    for j = 1:numel(items)
-                        
-                        %listener.callback(items(j));
-                        listener.callback(items(j), listener.eventType, this);
+                    
+                    % trigger the Read event
+                    if isfield(listener, 'Read') 
+                        this.trigger(item, 'Read', listener.Read);
                     end
-
-                    delete(grp);
+                    %listener.callback(item, listener.eventType, this);
                 end
-                
-                pause(this.pause);
-            end
+                    
+                pause(this.Pause);
+            end    
+            
+            delete(this.Grp);
             
             
-            
-        end
-        
-        
-        function items = readRecursive(this, grp, tries)
-            items = read(grp);
-            disp(tries);
-            if tries > 1 && isstruct(items) && numel(strfind(items(1).Quality, 'Bad')) > 0 
-                tries = tries - 1;
-                items = this.readRecursive(grp, tries);
-            end
         end
     end
     
+    methods (Access=private)
+        
+        function items = additems(this, selector)
+            
+            % add items that match a selector
+            items = serveritems(this.Da, selector);
+            if numel(items) > 0
+                additem(this.Grp, items);
+            % no matching items found, try to force an item
+            else
+                additem(this.Grp, selector);
+                items = {selector};
+            end
+            
+            % create item structures
+            for i = 1:numel(items)
+                itemId = items
+                key = genvarname(items{i});
+                if isfield(this.Listeners, key) == false
+                    this.Listeners.(key) = struct;
+                    this.Listeners.(key).Selector = itemId; 
+                end
+            end
+        end
+        
+        
+        function addcallback(this, itemId, eventType, callback)
+            
+            % generate a valid varname
+            key = genvarname(itemId);
+            
+            % create a structure for the event type
+            if isfield(this.Listeners.(key), eventType) == false
+                this.Listeners.(key).(eventType) = [];
+            end
+            
+            % add event callback
+            i = length(this.Listeners.(key).(eventType)) + 1;
+            this.Listeners.(key).(eventType){i} = callback;           
+        end
+        
+        
+        function trigger(this, item, eventType, callbacks)
+            for i = 1:length(callbacks)
+                callbacks{i}(item);
+            end
+        end
+        
+    end
     
 end
