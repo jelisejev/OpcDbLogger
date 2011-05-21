@@ -1,0 +1,13 @@
+classdef TestClass
+ properties(Access = private)
+    message = 'Hello world'
+ end
+    
+ methods(Access = public)
+    function run(obj)
+      disp(obj.message);
+    end
+ end
+    
+end
+

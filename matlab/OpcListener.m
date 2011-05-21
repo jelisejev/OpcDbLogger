@@ -7,12 +7,14 @@ classdef OpcListener < handle
         GlobalListeners = struct('Read', [], 'ReadError', [])
         Da
         Grp
+        
+        ReadFrom = 'device'
         ReadTimeout = 10
-        AddTimeout = 10
+        AddTimeout = 20
     end
     
     properties
-        Pause = 1;
+        Pause = 10;
     end
     
     methods
@@ -23,6 +25,13 @@ classdef OpcListener < handle
             this.Da.Timeout = this.AddTimeout;
             connect(this.Da);
             this.Grp = addgroup(this.Da, 'OpcListenerGroup');
+        end
+        
+        
+        function handleread(data, event, moreData)
+            disp(data);
+            disp(event);
+            disp(moreData);
         end
         
         
@@ -62,14 +71,19 @@ classdef OpcListener < handle
         % starts listening to item events
         function run(this)
             
+%            set(this.Grp, 'ReadAsyncFcn', @handleEvent);
+%             set(this.Grp,'UpdateRate',1);
+%            set(this.Grp,'RecordsToAcquire',1);
             % set the read timeout
-            this.Da.Timeout = this.ReadTimeout;
+%            set(this.Grp,'RecordsAcquiredFcnCoun',1);
             
+            this.Da.Timeout = this.ReadTimeout;
             while(1)
 
                 % try to read items and trigger the callbacks
                 try
-                    items = read(this.Grp);
+                    %readasync(this.Grp);
+                    items = read(this.Grp, this.ReadFrom);
                     for j = 1:numel(items)
                         item = OpcItem(items(j));
                         listener = this.Listeners.(genvarname(item.Data.ItemID));
@@ -81,7 +95,7 @@ classdef OpcListener < handle
                         this.trigger('Read', listener.Read, item);
                     end
                 catch exception
-                    
+                                        
                     % a stop exception, exit quitely
                     if numel(strfind(exception.identifier, 'OpcListener:stop')) > 0;
                         break;
@@ -93,8 +107,15 @@ classdef OpcListener < handle
                         rethrow(exception);
                     end
                     
-                    % trigger the global ReadError event
-                    this.trigger('ReadError', this.GlobalListeners.ReadError, exception);
+                    % check if any ReadError callbacks are defined
+                    if length(this.GlobalListeners.ReadError) > 0
+                        % trigger the global ReadError event
+                        this.trigger('ReadError', this.GlobalListeners.ReadError, exception);
+                    else
+                        % no ReadError handlers are defined - rethrow the
+                        % exception
+                        rethrow(exception);
+                    end
                     
                 end
                     
@@ -148,7 +169,9 @@ classdef OpcListener < handle
         % for all other events and instance of OpcItem will be passed
         function trigger(this, eventType, callbacks, data)
             for i = 1:length(callbacks)
-                callbacks{i}(data, eventType, this);
+                
+                callbacks{i}(data);
+                %callbacks{i}(data, eventType, this);
             end
         end
         

@@ -1,6 +1,7 @@
 classdef OpcDbLogger < handle
     %OPCLISTENER Summary of this class goes here
     %   Detailed explanation goes here
+    % http://www.kxcad.net/cae_MATLAB/toolbox/opc/ug/f6-6042.html
        
     properties (Access=public)
         Conn
@@ -24,7 +25,7 @@ classdef OpcDbLogger < handle
             %throw(MException('OpcListener:stop', 'stop, please'));
             
             data = opcItem.Data;
-            
+            disp(data);
             % format timestamp
             time = opcItem.timestamp('yyyy-mm-dd HH:MM:SS');
             
@@ -35,7 +36,7 @@ classdef OpcDbLogger < handle
             error = this.escape(data.Error);
             
             % insert data
-            query = ['INSERT INTO log (item, value, quality, timestamp, error, eventType) VALUES ("', itemId, '","', value, '","', quality, '","', time, '","', error, '","', eventType, '");'];
+            query = ['INSERT INTO PlcLog (item, value, quality, timestamp, error, service) VALUES ("', itemId, '","', value, '","', quality, '","', time, '","', error, '","matlab");'];
             mysql(this.Conn, query);
         end
     end
